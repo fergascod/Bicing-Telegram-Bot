@@ -1,0 +1,11 @@
+This bot is meant to work with data from the Bicing stations from Barcelona, that have been implemented as a graph. The commands you can use for this bot are:
+
+/start
+/help
+/graph (distance)
+/nodes
+/edges
+/components
+/plotgraph
+/route (adress), (adress)
+
