@@ -261,7 +261,7 @@ def main():
 # Declaration of some constants used throughout the code
 
 # Bot's token
-TOKEN = "856959132:AAEWJc9HC5YKQMQiijhnfMASed_JNTdzolo"
+TOKEN = "Here you should copy your token"
 
 # Help message displayed when /help command is executed
 HELP = "@PyBicingBot supports the following commands:\n\n\
