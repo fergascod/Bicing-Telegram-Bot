@@ -1,189 +1,289 @@
-# importa l'API de Telegram
-import telegram
+'''© fergascod & asleix'''
 
 from telegram.ext import *
-
-from staticmap import *
-
-import datetime
-
-import 'data.py' as data
-'''
-def start(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="Preparat per fer cosetes ☺")
-    bot.send_message(chat_id=update.message.chat_id, text="Fes servir la comanda /help per obtenir més informació sobre mi.")
+import data
+from data import BotException
+import os
+import random
+import string
+import logging
+from datetime import datetime
 
 
-def help(bot, update):
-	bot.send_message(chat_id=update.message.chat_id, text=HELP)
-
-def hora(bot, update):
-	HORA = str(datetime.datetime.now()) #Returns date and time
-	bot.send_message(chat_id=update.message.chat_id, text="Avui som a "+HORA)
-
-def creation_time(bot, update):
-	message = "This bot was created on 4/11/2019 at 10:30 in the morning"
-	bot.send_message(chat_id=update.message.chat_id, text=message)
-
-def myface(bot, update):
-	bot.send_message(chat_id=update.message.chat_id, text="Ara veuràs la meva cara")
-	bot.send_photo(chat_id=update.message.chat_id, photo=open('myface.jpg', 'rb'))
-	bot.send_message(chat_id=update.message.chat_id, text="Disgusting, ja ho sé")
-
-def info(bot, update):
-	botname = bot.username
-	username = update.message.chat.username
-	fullname = update.message.chat.first_name
-	if username!="Fergascod":
-		missatge = "Tu ets en %s (%s) i jo soc el %s." % (fullname, username, botname)
-	else:
-		missatge = "Tu ets el meu creador!"
-		bot.send_message(chat_id=update.message.chat_id, text=missatge)
-
-def where (bot, update, user_data):
-	try:
-		bot.send_message(chat_id=update.message.chat_id, text="Aquesta és la teva posició")
-		fitxer = "location.png"
-		lat, lon = update.message.location.latitude, update.message.location.longitude
-		print (lon , lat)
-		coord=[[2.112577, 41.387725], [lon , lat]]
-		line = Line(coord, 'white', 5)
-		mapa = StaticMap(1100, 1100)
-		mapa.add_line(line)
-
-		mapa.add_marker(CircleMarker((lon, lat), 'blue', 10))
-		mapa.add_marker(CircleMarker((2.112577, 41.387725), 'red', 10))
-
-		imatge = mapa.render()
-		imatge.save(fitxer)
-		bot.send_photo(chat_id=update.message.chat_id, photo=open('location.png', 'rb'))
-	except Exception as e:
-		print(e)
-
-def kk (bot, update):
-	try:
-		lon = randint(-180, 180)
-		lat = randint(-90, 90)
-		bot.send_message(chat_id=update.message.chat_id, text="Random position")
-		fitxer = "location.png"
-		mapa = StaticMap(1100, 1100)
-
-		mapa.add_marker(CircleMarker((lon,lat), 'blue', 10))
-
-		imatge = mapa.render(zoom=10)
-		imatge.save(fitxer)
-
-		bot.send_photo(chat_id=update.message.chat_id, photo=open('location.png', 'rb'))
-		mapa2 = StaticMap(1100, 1100)
-
-		mapa2.add_marker(CircleMarker((lon,lat), 'blue', 10))
-		mapa2.add_marker(CircleMarker((2.112577, 41.387725), 'blue', 10))
-
-		imatge2 = mapa2.render()
-		imatge2.save(fitxer)
-
-		bot.send_photo(chat_id=update.message.chat_id, photo=open('location.png', 'rb'))
-	except Exception as e:
-		print(e)
-
-'''
-
-
-def start(bot, update):
+def ErrorHandler(func):
     '''
-    Starts a conversation with the bot.
+    Decorator that handles the possible exceptions during a request.
+    It distinguishes between user mistakes, using the class
+    BotException, and internal mistakes.
     '''
-    data.create_graph(1000)
-    bot.send_message(chat_id=update.message.chat_id, text="Benvingut...")
-    # print welcome message
+    red, blue, end = '\033[91m', '\033[94m', '\033[0m' # Unix Terminal colors
 
-def get_help(bot, update):
-    '''
-    Show documentation.
-    Display all possible commands
-    and usage guide.
-    '''
-    bot.send_message(chat_id=update.message.chat_id, text=HELP)
+    def Request(self, bot, update, **kwargs):
+        user_ = str(update.message.from_user.id)
+        user = blue +  update.message.chat.username + end
+        print(user, 'is putting a request')
+        print('    time:', datetime.now())
 
-def get_authors(bot, update):
-    '''
-    Sends a message to the chat with the names and emails of the authors
-    '''
-    bot.send_message(chat_id=update.message.chat_id, text="Fernando Gastón Codony: fernando.gaston@est.fib.upc.edu")
+        try:
+            func(self, bot, update, **kwargs)
+            print(user, 'request is fulfilled')
 
-def get_graph(bot, update, distance):
-    '''
-    Create a new geometric graph from the Bicing stations data.
-    Given a set of vertices and a distance d, a geometric graph
-    contains the edges between the vertices at a distance less than d.
-    '''
-    distance = input #ditancia erronia (ex: negativa)
-    data.create_graph(distance)
-    bot.send_message(chat_id=update.message.chat_id, text="OK")
+        except KeyError as err:  # Case graph has not been created
+            if str(err) != user_:
+                print(red + 'EXCEPTION' + end)
+                bot.send_message(chat_id=update.message.chat_id,
+                                 text="I can't fulfill your desires!")
+                bot.send_message(chat_id=update.message.chat_id, text=str(err))
+                raise err
 
+            self.start(bot, update)
+            func(self, bot, update, **kwargs)
+            print(user, 'request is fulfilled')
 
-def get_nodes(bot, update):
-    '''
-    Sends a message to the chat with the number of nodes of the graph.
-    '''
-    nodes = data.number_of_nodes()
-    bot.send_message(chat_id=update.message.chat_id, text=nodes)
+        except BotException as err:  # General handled case
+            print(red + 'EXCEPTION' + end)
+            print(user, 'request is not fulfilled\n', err)
+            bot.send_message(chat_id=update.message.chat_id,
+                             text="I can't fulfill your desires!")
+            bot.send_message(chat_id=update.message.chat_id, text=str(err))
 
-def get_edges(bot, update):
-    '''
-    Sends a message to the chat with the number of edges of the graph.
-    '''
-    edges = data.number_of_edges()
-    bot.send_message(chat_id=update.message.chat_id, text=edges)
+        except Exception as err:  # Unexpected error
+            print(red + 'EXCEPTION' + end)
+            print(user, 'request is not fulfilled')
+            bot.send_message(chat_id=update.message.chat_id,
+                             text="I can't fulfill your desires!")
+            bot.send_message(chat_id=update.message.chat_id,
+                             text="Some weird error happened:\n" + str(err))
+            raise err
 
-def get_components(bot, update):
-    '''
-    Sends a message to the chat with the number of connected components.
-    '''
-    CC = data.get_connected_components()
-    bot.send_message(chat_id=update.message.chat_id, text=CC)
-
-def get_route(bot, update, input):
-    '''
-    Displays the map of the city with the route
-    between two given addresses.
-    '''
-    origin = input
-    destination = input
-    data.create_route(origin, destination)
-    bot.send_photo(chat_id=update.message.chat_id, photo=open('map.png', 'rb'))
-    delete map.png
-
-def get_map(bot, update):
-    '''
-    Displays the map of the city with the all
-    the Bicing stations (vertices of the graph)
-    and the edges that connect them
-    '''
-    data.plot_graph()
-    bot.send_photo(chat_id=update.message.chat_id, photo=open('map.png', 'rb'))
-    delete map.png
+    return Request
 
 
-# declara una constant amb el access token que llegeix de token.txt
-TOKEN = open('token.txt').read().strip()
-#Llegeix el fitxer help.txt
-HELP = open('help.txt').read().strip()
-# crea objectes per treballar amb Telegram
-updater = Updater(token=TOKEN)
-dispatcher = updater.dispatcher
+class BicingBot(object):
+    ''' Main driver class for the BicingBot. Contains all bot functions. '''
+    def __init__(self):
+        self.G = {}
+        self.rand_gen = lambda: ''.join([random.choice(string.ascii_letters)
+                                         for i in range(10)]) + '.png'
 
-# indica que quan el bot rebi la comanda '/comanda' s'executi la funció comanda (1r i 2n paràmtre)
-dispatcher.add_handler(CommandHandler('start', start))
-dispatcher.add_handler(CommandHandler('help', get_help))
-dispatcher.add_handler(CommandHandler('authors', get_authors))
-dispatcher.add_handler(CommandHandler('graph', get_graph, pass_args=True)) #parameters
-dispatcher.add_handler(CommandHandler('nodes', get_nodes))
-dispatcher.add_handler(CommandHandler('edges', get_edges))
-dispatcher.add_handler(CommandHandler('components', get_components))
-dispatcher.add_handler(CommandHandler('plotgraph', get_map))
-dispatcher.add_handler(CommandHandler('route', get_route, pass_args=True))
+    @ErrorHandler
+    def start(self, bot, update):
+        ''' Starts a conversation with the bot.
+            A welcome message is sent to the chat.'''
+        bot.send_message(
+            chat_id=update.message.chat_id,
+            text="Welcome! This bot will help you get information on " +
+                 "Bicing stations in Barcelona, for more information " +
+                 "on the bot, use the command /help")
+
+        user = update.message.from_user.id
+        username = update.message.chat.username
+        self.G[user] = data.start_graph()
+        self.G[user].name = username
+
+    @ErrorHandler
+    def get_help(self, bot, update):
+        '''
+        Show documentation.
+        Display all possible commands and usage guide.
+        '''
+        user = update.message.from_user.id
+        bot.send_message(chat_id=update.message.chat_id, text=HELP)
+
+    @ErrorHandler
+    def get_authors(self, bot, update):
+        ''' Sends a message with the names and emails of the authors. '''
+        user = update.message.from_user.id
+        if user not in self.G.keys():
+            self.start(bot, update)
+
+        bot.send_message(
+            chat_id=update.message.chat_id,
+            text="Fernando Gastón Codony: fernando.gaston@est.fib.upc.edu")
+        bot.send_message(
+            chat_id=update.message.chat_id,
+            text="Aleix Seguí Ugalde: aleix.segui@est.fib.upc.edu")
+
+    @ErrorHandler
+    def get_graph(self, bot, update, args):
+        '''
+        Create a new geometric graph from the Bicing stations data.
+        Given a set of vertices and a distance d, a geometric graph
+        contains the edges between the vertices at a distance less than d.
+        '''
+        user = update.message.from_user.id
+        try:
+            if len(args) != 1:
+                raise Exception
+            distance = int(args[0])
+
+        except Exception as err:
+            raise BotException('Invalid argument. Not a distance!')
+
+        self.G[user] = data.create_graph(self.G[user], distance)
+        bot.send_message(chat_id=update.message.chat_id, text='OK')
+
+    @ErrorHandler
+    def get_nodes(self, bot, update):
+        '''Sends a message with the number of nodes of the graph.'''
+        user = update.message.from_user.id
+        nodes = data.number_of_nodes(self.G[user])
+        bot.send_message(chat_id=update.message.chat_id, text=nodes)
+
+    @ErrorHandler
+    def get_edges(self, bot, update):
+        ''' Sends a message with the number of edges of the graph. '''
+        user = update.message.from_user.id
+        edges = data.number_of_edges(self.G[user])
+        bot.send_message(chat_id=update.message.chat_id, text=edges)
+
+    @ErrorHandler
+    def get_components(self, bot, update):
+        ''' Sends a message with the number of connected components. '''
+        user = update.message.from_user.id
+        CC = data.get_connected_components(self.G[user])
+        bot.send_message(chat_id=update.message.chat_id, text=CC)
+
+    @ErrorHandler
+    def get_route(self, bot, update, args):
+        '''
+        Displays the map of the city with
+        the route between two given addresses.
+        '''
+        user = update.message.from_user.id
+        filename = self.rand_gen()
+        data.create_route(self.G[user], args, filename)
+        bot.send_photo(chat_id=update.message.chat_id,
+                       photo=open(filename, 'rb'))
+        os.remove(filename)
+
+    @ErrorHandler
+    def get_map(self, bot, update):
+        '''
+        Displays the map of the city with the all
+        the Bicing stations (vertices of the graph)
+        and the edges that connect them
+        '''
+        user = update.message.from_user.id
+        filename = self.rand_gen()
+        data.plot_graph(self.G[user], filename)
+        bot.send_photo(chat_id=update.message.chat_id,
+                       photo=open(filename, 'rb'))
+        os.remove(filename)
+
+    @ErrorHandler
+    def get_summary(self, bot, update):
+        '''
+        Distribute the unbalanced bikes in the Bicing network.
+        The total cost of transportation is displayed, as well
+        as the edge with highest cost.
+        '''
+        user = update.message.from_user.id
+        summary = data.graph_summary(self.G[user])
+        bot.send_message(
+            chat_id=update.message.chat_id,
+            text=summary)
 
 
-# engega el bot
-updater.start_polling()
+    @ErrorHandler
+    def get_distribute(self, bot, update, args):
+        '''
+        Distribute the unbalanced bikes in the Bicing network.
+        The total cost of transportation is displayed, as well
+        as the edge with highest cost.
+        '''
+        user = update.message.from_user.id
+
+        try:
+            if len(args) != 2:
+                raise Exception('2 arguments are needed!')
+            requiredBikes, requiredDocks = int(args[0]), int(args[1])
+            if requiredBikes < 0 or requiredDocks < 0:
+                raise Exception('Values must be non-negative!')
+
+        except Exception as err:
+            raise BotException('Invalid input. ' + str(err))
+
+        cost, move = data.distribute_bikes(self.G[user],
+                                     requiredBikes, requiredDocks)
+        bot.send_message(
+            chat_id=update.message.chat_id,
+            text="Total cost of transferring bicycles: " + str(cost) + " km.\n" +
+                 "Highest cost edge:\n" + str(move[0]) + ' -> ' + str(move[1]) +
+                 ', ' + str(move[2]) + ' bikes, distance ' + str(move[3]) + ' m.')
+
+    @ErrorHandler
+    def unknown(self, bot, update):
+        ''' Unknown command handler. '''
+        raise BotException('Unrecognized command. ' +
+                           'Try /help for other commands.')
+
+    @ErrorHandler
+    def NoCommand(self, bot, update):
+        ''' Text with no command handler. '''
+        bot.send_message(
+            chat_id=update.message.chat_id,
+            text='I didn\'t catch that! Try /help for more info.')
+
+
+def main():
+    # Using the logger to display uncatched exceptions in stdout.
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO)
+
+    # Declaration of objects used to work with Telegram bots
+    updater = Updater(token=TOKEN)
+    dispatcher = updater.dispatcher
+
+    PyBot = BicingBot()
+    # When the bot receives the command (first parameter)
+    # the function (second parameter) is executed
+    dispatcher.add_handler(CommandHandler('start', PyBot.start))
+    dispatcher.add_handler(CommandHandler('help', PyBot.get_help))
+    dispatcher.add_handler(CommandHandler('authors', PyBot.get_authors))
+    dispatcher.add_handler(CommandHandler('graph', PyBot.get_graph, pass_args=True))
+    dispatcher.add_handler(CommandHandler('nodes', PyBot.get_nodes))
+    dispatcher.add_handler(CommandHandler('edges', PyBot.get_edges))
+    dispatcher.add_handler(CommandHandler('components', PyBot.get_components))
+    dispatcher.add_handler(CommandHandler('plotgraph', PyBot.get_map))
+    dispatcher.add_handler(CommandHandler('route', PyBot.get_route, pass_args=True))
+    dispatcher.add_handler(CommandHandler('distribute', PyBot.get_distribute, pass_args=True))
+    dispatcher.add_handler(CommandHandler('summary', PyBot.get_summary))
+
+    dispatcher.add_handler(MessageHandler(Filters.command, PyBot.unknown))
+    dispatcher.add_handler(MessageHandler(Filters.text, PyBot.NoCommand))
+
+    print('Bot is ON')
+    updater.start_polling()
+
+
+# Declaration of some constants used throughout the code
+
+# Bot's token
+TOKEN = "856959132:AAEWJc9HC5YKQMQiijhnfMASed_JNTdzolo"
+
+# Help message displayed when /help command is executed
+HELP = "@PyBicingBot supports the following commands:\n\n\
+- /start: Start a conversation with the bot. Your graph is created.\n\
+- /help: Display all commands and usage guide.\n\
+- /authors: Who are we?\n\
+- /graph (distance): Create a new geometric graph from the Bicing stations \
+data using the Bicing stations as vertices and the parameter as the maximum\
+distance between stations. It must be in range (0, 1000).\n\
+- /nodes: Get the number of nodes of the graph \
+(number of active Bicing stations).\n\
+- /edges: Get a message with the number of edges.\n\
+- /components: Get the number of connected components.\n\
+- /plotgraph: Get a drawing of the graph over the map of Barcelona.\n\
+- /route (address, address): Get a drawing of the route between two given addresses. \n\
+- /summary: Get assorted info from the graph. \n\
+- /distribute (int, int): Calculate the cost of transporting bikes \
+in order to guarantee a minimum number of bikes (first parameter) and docks \
+(second parameter) per station. \n\n\
+For additional information on the bot check out the following link: \n\
+https://github.com/jordi-petit/ap2-bicingbot-2019/blob/master/README.md"
+
+
+if __name__ == '__main__':
+    main()
